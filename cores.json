@@ -597,6 +597,23 @@
         "repo": "https://github.com/libretro/fbalpha2012_neogeo"
     },
     {
+        "name": "fbalpha2012_pgm",
+        "extensions": [
+            "zip"
+        ],
+        "makeoptions": {
+            "arguments": [
+                "target=pgm"
+            ],
+            "buildpath": "./",
+            "makescript": "makefile.libretro"
+        },
+        "options": {},
+        "save": false,
+        "license": "",
+        "repo": "https://github.com/libretro/fbalpha2012"
+    },
+    {
         "name": "prosystem",
         "extensions": [
             "a78",
