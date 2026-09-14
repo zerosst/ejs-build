@@ -51,16 +51,32 @@ jobs:
       #   —— 目录已存在就**不会去 clone**, 直接用我们这份。这样:
       #     ① 不用建第二个仓库(核心源码不进任何仓库) ② 补丁应用在 CI 里(网络快) ③ 结果可复现
       #   (cores.json 里那个 repo 字段只在目录缺失时才用, 留着是为了记录来源)
-      - name: 预置 core 源码并打 EJS 补丁
+      # ⚠️ 预置核心源码到 build.sh 期望的位置(compile/<name>)。
+      #    build.sh 是 `if [ ! -d "$name" ]; then git clone ...; fi` —— 目录已存在就**不 clone**,
+      #    用它现成的。这样**核心源码不必进任何仓库**: 这里从上游 clone 再覆盖我们改过的文件。
+      #    (另外两个核心的仓库模式没走通: 本机推 27MB 时本地代理 502/408, 换成"CI 自己 clone"最稳。)
+      - name: 预置 core 源码并打补丁
+        if: github.event.inputs.core == 'fbalpha2012_neogeo' || github.event.inputs.core == 'fbalpha2012_pgm'
         run: |
           CORE=${{ github.event.inputs.core }}
           mkdir -p compile
-          git clone --depth 1 https://github.com/libretro/fbalpha2012_neogeo.git "compile/$CORE"
-          cp "core-patch/makefile.libretro" "compile/$CORE/makefile.libretro"
-          echo "--- 补丁后的 emscripten 分支 ---"
-          grep -n -A 7 'platform), emscripten' "compile/$CORE/makefile.libretro" | head -12
-          echo "--- 确认 EMULATORJS_THREADS 已注入 ---"
+          if [ "$CORE" = "fbalpha2012_neogeo" ]; then
+            git clone --depth 1 https://github.com/libretro/fbalpha2012_neogeo.git "compile/$CORE"
+            cp "core-patch/makefile.libretro" "compile/$CORE/makefile.libretro"
+          else
+            # PGM: 上游**没有** PGM 子集, 只有全驱动树 -> clone 完整树, 把 svn-current/trunk 的内容搬到根,
+            # 再覆盖我们改过的 makefile(加了 target=pgm 分支)与 gamelist(只留 115 款 PGM 游戏)
+            git clone --depth 1 https://github.com/libretro/fbalpha2012.git /tmp/fba
+            cp -r /tmp/fba/svn-current/trunk/. "compile/$CORE/"
+            cp "boards/fbalpha2012_pgm/makefile.libretro" "compile/$CORE/makefile.libretro"
+            cp "boards/fbalpha2012_pgm/gamelist.txt" "compile/$CORE/gamelist.txt"
+          fi
+          echo "--- 校验: EJS 补丁在位 ---"
           grep -n 'EMULATORJS_THREADS ?=' "compile/$CORE/makefile.libretro"
+          grep -n 'EXTERNAL_ZLIB = 1' "compile/$CORE/makefile.libretro" | head -2
+          echo "--- 校验: 本机板分支/清单 ---"
+          grep -n 'target),' "compile/$CORE/makefile.libretro" | head -8
+          grep -c 'PolyGameMaster' "compile/$CORE/gamelist.txt" || echo '(gamelist 无 PGM 行)'
 
       - name: 构建核心
         run: |
