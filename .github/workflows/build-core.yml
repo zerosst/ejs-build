@@ -70,6 +70,13 @@ jobs:
             cp -r /tmp/fba/svn-current/trunk/. "compile/$CORE/"
             cp "boards/fbalpha2012_pgm/makefile.libretro" "compile/$CORE/makefile.libretro"
             cp "boards/fbalpha2012_pgm/gamelist.txt" "compile/$CORE/gamelist.txt"
+            # ★ 还要覆盖 retro_common.cpp: 它的 set_neo_system_bios() 引用 NeoSystem(NeoGeo 的
+            #   MVS/AES/UNIBIOS 模式), 而这个引用**没有任何 #if 守卫** —— 完整树里 libretro 前端是拆成
+            #   三个文件的, 而机板子集用的是"合并版 libretro.cpp"(所以子集没事)。
+            #   不补 -> 链接期 52 条 `undefined symbol: NeoSystem`(编译全绿)。
+            cp "boards/fbalpha2012_pgm/retro_common.cpp" "compile/$CORE/src/burner/libretro/retro_common.cpp"
+            echo "--- 确认守卫已就位 ---"
+            grep -c "defined(WANT_NEOGEOCD)" "compile/$CORE/src/burner/libretro/retro_common.cpp" || true
             # ★ 必须**重新生成 driverlist.h**: 完整树自带的那份是按"全游戏"gamelist 生成的
             #   (11942 条 BurnDrv 引用), 而我们只编 PGM -> 链接期几百条
             #   `undefined symbol: BurnDrvCps1941 / BurnDrvmd_12in1 / ...`
