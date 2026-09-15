@@ -690,10 +690,12 @@ FBA_COBJ := $(SOURCES_C:.c=.o)
 
 OBJS := $(FBA_COBJ) $(FBA_CXXOBJ)
 
+# ⚠️ WANT_NEOGEOCD 是 **NeoGeo 专属**(NeoCD 光盘镜像支持)。开着它 retro_common.cpp 会引用
+#    NeoSystem -> 非 neogeo 目标(如 pgm)没编那套驱动 = 链接期 undefined symbol。
+#    ⚠️ 注意: make 的**反斜杠续行中间不能插 # 注释** —— 注释会把整条逻辑行的剩余部分全吞掉,
+#       实测报 `recipe commences before first target`(所以注释必须写在这条赋值**之前**)。
 FBA_DEFINES += -DUSE_SPEEDHACKS -D__LIBRETRO__ \
 	-D__LIBRETRO_OPTIMIZATIONS__ \
-# ⚠️ WANT_NEOGEOCD 是 **NeoGeo 专属**(NeoCD 光盘镜像支持)。开着它 retro_common.cpp 会引用
-	#    NeoSys_/NeoSystem -> 非 neogeo 目标(如 pgm)没编那套驱动 = 链接期 undefined symbol。
 	$(if $(filter pgm,$(target)),,-DWANT_NEOGEOCD) \
 	$(ENDIANNESS_DEFINES) \
 	$(PLATFORM_DEFINES)
