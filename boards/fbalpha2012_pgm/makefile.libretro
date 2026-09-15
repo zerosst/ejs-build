@@ -624,10 +624,10 @@ else ifeq ($(target),neogeo)
 		$(FBA_BURN_DIR)/burn_vector.cpp \
 		$(FBA_BURN_DIR)/tiles_generic.cpp
 
-# PGM (PolyGameMaster) Only —— 本文件是"全驱动"树, 加一个 target=pgm 让它只编 PGM
-# 依赖依据(逐个 include 查出来的): pgm_run.cpp 用到 arm7_intf(IGS027A 保护芯片)/v3021(RTC)/
-# m68000_intf/z80_intf/ics2115(音源)/tiles_generic/nvram。devices 与 snd 直接整目录 glob ——
-# 芯片有几十个, 逐个登记容易漏(漏了只在链接期报 undefined, 很难查)。
+# PGM (PolyGameMaster) Only —— 本树是"全驱动"版, 加 target=pgm 让它只编 PGM
+# 依赖逐个 #include 查出来: arm7(IGS027A 保护)/v3021(RTC)/m68000/z80/ics2115(音源)/tiles_generic。
+# ⚠️ 必须带 sh2: hiscore.cpp 在"非单机板构建"里引用 has_sh2(cpu/sh2/sh2.cpp 定义)。
+#    漏了它的表现是**链接期** undefined symbol —— 编译全绿, 只在链接炸, 极易误判成"编过了"。
 else ifeq ($(target),pgm)
    SOURCES_CXX :=
 
@@ -641,9 +641,10 @@ else ifeq ($(target),pgm)
    FBA_CPU_DIRS := $(FBA_CPU_DIR) \
 		$(M68K_DIR) \
 		$(FBA_CPU_DIR)/z80 \
-		$(FBA_CPU_DIR)/arm7
+		$(FBA_CPU_DIR)/arm7 \
+		$(FBA_CPU_DIR)/sh2
 
-   # pgm_sprite_create.cpp 是**宿主端代码生成器**(跑在本机生成 pgm_sprite.h), 绝不能编进核心
+   # pgm_sprite_create.cpp 是宿主端代码生成器(生成 pgm_sprite.h), 不能编进核心
    BURN_BLACKLIST += $(FBA_BURN_DIR)/drv/pgm/pgm_sprite_create.cpp
 
 else
