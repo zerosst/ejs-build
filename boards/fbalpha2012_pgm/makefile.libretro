@@ -57,7 +57,13 @@ else ifeq ($(target),neogeo)
    FBA_DEFINES += -DTARGET=\"\ Neo\ Geo\" -DNEOGEO_ONLY
 else ifeq ($(target),pgm)
    TARGET_NAME := fbalpha2012_pgm
-   FBA_DEFINES += -DTARGET=\"\ PGM\"
+   # ★ 必须定义 ROM_VERIFY: PGM 的 BIOS 表(pgmRomDesc)里有两条**自定义 BIOS**
+   #   (ddp3_bios.u37 / bios.u42 —— 只有 ddp3 那类游戏用得上, 正常 ROM 集不会有), 它们被
+   #   `#if !defined (ROM_VERIFY)` 包着。不定义 -> 它们被当成**必需 ROM** ->
+   #   open_archive() 返回 false -> 核心只报一句**误导性**的 "Cannot find driver."(其实是缺 ROM)。
+   #   定义后它们变成空占位, 而空占位(nType==0)在 open_archive 里会被**自动放行**。
+   #   该宏只影响各 drv/*.cpp 的 ROM 表, 不涉及代码路径(grep 确认过)。
+   FBA_DEFINES += -DTARGET=\"\ PGM\" -DROM_VERIFY
 else
    TARGET_NAME := fbalpha2012
 endif
