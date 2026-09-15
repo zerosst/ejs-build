@@ -692,7 +692,9 @@ OBJS := $(FBA_COBJ) $(FBA_CXXOBJ)
 
 FBA_DEFINES += -DUSE_SPEEDHACKS -D__LIBRETRO__ \
 	-D__LIBRETRO_OPTIMIZATIONS__ \
-	-DWANT_NEOGEOCD \
+# ⚠️ WANT_NEOGEOCD 是 **NeoGeo 专属**(NeoCD 光盘镜像支持)。开着它 retro_common.cpp 会引用
+	#    NeoSys_/NeoSystem -> 非 neogeo 目标(如 pgm)没编那套驱动 = 链接期 undefined symbol。
+	$(if $(filter pgm,$(target)),,-DWANT_NEOGEOCD) \
 	$(ENDIANNESS_DEFINES) \
 	$(PLATFORM_DEFINES)
 
