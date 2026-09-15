@@ -79,6 +79,16 @@ jobs:
             wc -l "compile/$CORE/src/dep/generated/driverlist.h"
             grep -c "BurnDrv" "compile/$CORE/src/dep/generated/driverlist.h" || true
             grep -c "BurnDrvKov;" "compile/$CORE/src/dep/generated/driverlist.h" || true
+            # ★ makefile 语法预检: `make -n` 只解析不执行 —— 语法错会在这里**立刻**暴露,
+            #   不用等 4 分钟构建完才看到(实测踩过: 续行中间插注释 -> `recipe commences before first target`)。
+            echo "--- makefile 语法自检(干跑) ---"
+            if ( cd "compile/$CORE" && make -n -f makefile.libretro platform=emscripten target=pgm >/dev/null 2>&1 ); then
+              echo "✔ makefile 语法 OK"
+            else
+              echo "❌ makefile 语法错误:"
+              ( cd "compile/$CORE" && make -n -f makefile.libretro platform=emscripten target=pgm 2>&1 | head -25 )
+              exit 1
+            fi
           fi
           echo "--- 校验: EJS 补丁在位 ---"
           grep -n 'EMULATORJS_THREADS ?=' "compile/$CORE/makefile.libretro"
