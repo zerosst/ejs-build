@@ -106,10 +106,10 @@ void set_neo_system_bios()
 {
 #if defined(WANT_NEOGEOCD)
 	/* 这段只在启用 NeoCD(NeoGeo)时编译: 它引用 NeoSystem(MVS/AES/UNIBIOS 模式),
-	 * 而 **非 neogeo 的机板子集**(如 PGM)并不编译 neogeo 驱动, 那个符号不存在。
-	 * 症状: 编译全绿、只有链接期 `undefined symbol: NeoSystem`。
-	 * 由 tools/ejs-neogeo-build/boards/fbalpha2012_pgm/ 提供(makefile 里 WANT_NEOGEOCD
-	 * 也改成按 target 条件定义了, 两边是配套的)。 */
+	 * 而**非 neogeo 的机板子集**(如 PGM)不编译 neogeo 驱动, 那个符号不存在。
+	 * 症状: 编译全绿、只在链接期 `undefined symbol: NeoSystem`。
+	 * 由 tools/ejs-neogeo-build/boards/fbalpha2012_pgm/ 提供, 与 makefile 里
+	 * "WANT_NEOGEOCD 按 target 条件定义"是配套的两半。 */
 	if (g_opt_neo_geo_mode == NEO_GEO_MODE_DIPSWITCH)
 	{
 		// Nothing to do in DIPSWITCH mode because the NeoSystem variable is changed by the DIP Switch core option
@@ -172,8 +172,8 @@ void set_neo_system_bios()
 			}
 		}
 	}
-}
 #endif
+}
 
 void evaluate_neogeo_bios_mode(const char* drvname)
 {
