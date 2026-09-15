@@ -70,6 +70,15 @@ jobs:
             cp -r /tmp/fba/svn-current/trunk/. "compile/$CORE/"
             cp "boards/fbalpha2012_pgm/makefile.libretro" "compile/$CORE/makefile.libretro"
             cp "boards/fbalpha2012_pgm/gamelist.txt" "compile/$CORE/gamelist.txt"
+            # ★ 必须**重新生成 driverlist.h**: 完整树自带的那份是按"全游戏"gamelist 生成的
+            #   (11942 条 BurnDrv 引用), 而我们只编 PGM -> 链接期几百条
+            #   `undefined symbol: BurnDrvCps1941 / BurnDrvmd_12in1 / ...`
+            #   (编译全绿, 只在链接炸 —— 极易误判成"编过了")。生成器是 perl(CI 有, 本机没有)。
+            ( cd "compile/$CORE" && perl src/dep/scripts/gamelist.pl -o src/dep/generated/driverlist.h -l gamelist.txt src/burn/drv/pgm )
+            echo "--- 重新生成后的 driverlist.h ---"
+            wc -l "compile/$CORE/src/dep/generated/driverlist.h"
+            grep -c "BurnDrv" "compile/$CORE/src/dep/generated/driverlist.h" || true
+            grep -c "BurnDrvKov;" "compile/$CORE/src/dep/generated/driverlist.h" || true
           fi
           echo "--- 校验: EJS 补丁在位 ---"
           grep -n 'EMULATORJS_THREADS ?=' "compile/$CORE/makefile.libretro"
