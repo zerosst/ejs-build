@@ -84,7 +84,8 @@ jobs:
             #   (所以上游多年没发现), 而 wasm 里一越界就 trap -> 稳定崩在
             #   `Arm7_program_read_byte_32le`。FBNeo 在**同一处**补了 memset, 我们照抄。
             echo "--- 打 arm7 页表清零补丁 ---"
-            patch -d "compile/$CORE" -p1 -i "boards/fbalpha2012_pgm/patches/arm7_zero_membase.patch" || exit 1
+            # ⚠️ `patch -d` 会**先 chdir**, 所以 -i 的路径必须是**绝对**的(踩过: 用了仓库相对路径 -> Can't open patch file)
+            patch -d "compile/$CORE" -p1 -i "$PWD/boards/fbalpha2012_pgm/patches/arm7_zero_membase.patch" || exit 1
             # ⚠️ 必须**验证生效**: 补丁没打上一样会"绿勾 + 空产物"(这坑吃过一次)
             grep -q 'memset(membase\[i\], 0, ARM7_PAGE_COUNT' "compile/$CORE/src/cpu/arm7_intf.cpp" \
               || { echo "❌ arm7 补丁没生效(补丁文件与上游上下文对不上?)"; exit 1; }
