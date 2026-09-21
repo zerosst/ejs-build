@@ -135,6 +135,28 @@ jobs:
           echo "===== 链接日志(尾 150 行) ====="
           tail -n 150 output/logs/*-emake.log 2>/dev/null || true
 
+      # ★ 联机取证: 独立步骤 + if: always() —— **不可能**弄坏上面的构建。
+      #   (教训: 把取证写进 build.sh, 一次语法错就让整轮构建变红, 连产物都拿不到。)
+      - name: netplay 取证(与构建解耦)
+        if: always()
+        run: |
+          mkdir -p output
+          {
+            echo "=== netplay 取证(独立步骤) ==="
+            echo "--- 全树 *_libretro.js : step / sim / size ---"
+            for JS in $(find . -name '*_libretro.js' 2>/dev/null | head -10); do
+              echo "$JS : step=$(grep -c _ejs_step_frames "$JS" || true) sim=$(grep -c _simulate_input "$JS" || true) size=$(wc -c < "$JS" || true)"
+            done
+            echo "--- 打包源 EmulatorJS/data/cores/ 下的 js ---"
+            for JS in compile/RetroArch/EmulatorJS/data/cores/*_libretro.js; do
+              [ -f "$JS" ] || continue
+              echo "$JS : step=$(grep -c _ejs_step_frames "$JS" || true) sim=$(grep -c _simulate_input "$JS" || true) size=$(wc -c < "$JS" || true)"
+            done
+            echo "--- 构建后的导出表(124-126 行) ---"
+            sed -n "124,126p" compile/RetroArch/Makefile.emulatorjs 2>/dev/null || true
+          } > output/netplay-diag.txt 2>&1 || true
+          cat output/netplay-diag.txt || true
+
       - name: 上传产物
         if: always()
         uses: actions/upload-artifact@v4
