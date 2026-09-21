@@ -359,6 +359,15 @@ for row in $(jq -r '.[] | @base64' ../cores.json); do
         echo "Building wasm's for core $name"
         cd "$buildPath/RetroArch/emulatorjs"
 
+        # ★ 联机(方案 D/P5): 单步入口必须**列进显式导出表** —— EMSCRIPTEN_KEEPALIVE 不够(实测:
+        #    胶水里有 _simulate_input 却没有 _ejs_step_frames)。全树搜(别假设路径: ../ 那条在 CI 里不存在),
+        #    幂等 sed, 并把证据写进产物目录(会随 artifact 回来; CI 控制台我看不到)。
+        MKF=$(find "$buildPath" -maxdepth 6 -name Makefile.emulatorjs 2>/dev/null | head -1)
+        if [ -n "$MKF" ]; then
+            grep -q _ejs_step_frames "$MKF" || sed -i 's/_simulate_input,/_simulate_input,_ejs_step_frames,/' "$MKF"
+            echo "[netplay] export: $(grep -c _ejs_step_frames "$MKF" || true) 处 | $MKF" >> "$outputPath/netplay-diag.txt"
+        fi
+
         # ★★ 联机(方案 D/P5): 单步入口必须列进显式导出表 —— **EMSCRIPTEN_KEEPALIVE 不够**(实测:
         #    第一次编出来的胶水里有 _simulate_input、没有 _ejs_step_frames)。
         #    ① **全树搜** Makefile.emulatorjs(不要假设路径: 第一次按 ../ 找, CI 里走的是"找不到"分支,
@@ -418,25 +427,6 @@ for row in $(jq -r '.[] | @base64' ../cores.json); do
             rm -rf core-temp
         fi
         rm -f *.bc
-
-        # ★★ 联机(方案 D/P5) **编译后**当场取证: 产出的胶水里到底有没有那个导出符号?
-        #    这条在 CI 里就能判定(不用等产物回传); 同时把导出表与"用到它的地方"一起留档。
-        {
-          echo ""
-          echo "=== 编译后校验(胶水里的导出符号) ==="
-          echo "--- 全树找 *_libretro.js(上一轮测的 emulatorjs/ 里没有, 所以什么都没打印) ---"
-          for JS in $(find "$buildPath" -name "*_libretro.js" 2>/dev/null | head -8); do
-            echo "$JS : step=$(grep -c _ejs_step_frames "$JS" || true) sim=$(grep -c _simulate_input "$JS" || true) size=$(wc -c < "$JS" || true)"
-          done
-          echo "--- cwd(emulatorjs/) 里有什么 js ---"
-          ls -1 *.js 2>/dev/null | head -10
-          echo "--- EmulatorJS/data/cores/ 里有什么(打包 .data 的很可能拿的是这里) ---"
-          ls -1 "../EmulatorJS/data/cores/" 2>/dev/null | head -20
-          echo "--- 那里面同名 js 的符号数 ---"
-          for JS in ../EmulatorJS/data/cores/*_libretro.js; do
-            [ -f "$JS" ] || continue
-            echo "$JS : step=$(grep -c _ejs_step_frames "$JS" || true) sim=$(grep -c _simulate_input "$JS" || true) size=$(wc -c < "$JS" || true)"
-          done
 
         echo "Packing core information for $name"
         cd $compileStartPath
