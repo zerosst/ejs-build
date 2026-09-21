@@ -155,6 +155,19 @@ jobs:
             echo "--- 构建后的导出表(124-126 行) ---"
             sed -n "124,126p" compile/RetroArch/Makefile.emulatorjs 2>/dev/null || true
           } > output/netplay-diag.txt 2>&1 || true
+          {
+            echo "--- emulatorjs/ 目录(编译产出) ---"
+            ls -la compile/RetroArch/emulatorjs/ 2>/dev/null | head -30 || true
+            echo "--- EmulatorJS/data/cores/(打包源) ---"
+            ls -la compile/RetroArch/EmulatorJS/data/cores/fbalpha2012_cps1* 2>/dev/null | head -20 || true
+            echo "--- 全树 wasm / *_libretro.js ---"
+            find . -name '*.wasm' -o -name '*_libretro.js' 2>/dev/null | head -20
+            echo "--- 取出过的 .data 里那份 js 的符号数(如果 data/cores 里有) ---"
+            for JS in compile/RetroArch/EmulatorJS/data/cores/fbalpha2012_cps1*.js; do
+              [ -f "$JS" ] || continue
+              echo "$JS step=$(grep -c _ejs_step_frames "$JS" || true) sim=$(grep -c _simulate_input "$JS" || true)"
+            done
+          } >> output/netplay-diag.txt 2>&1 || true
           cat output/netplay-diag.txt || true
 
       - name: 上传产物
@@ -170,6 +183,8 @@ jobs:
             output/*.txt
             output/logs/*
             output/reports/*
+            compile/RetroArch/EmulatorJS/data/cores/fbalpha2012_cps1*
+            compile/RetroArch/emulatorjs/fbalpha2012_cps1*
             output/reports/**
             output/logs/**
             compile/build.json
