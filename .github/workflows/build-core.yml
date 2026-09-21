@@ -57,11 +57,19 @@ jobs:
       #    (另外两个核心的仓库模式没走通: 本机推 27MB 时本地代理 502/408, 换成"CI 自己 clone"最稳。)
       - name: 预置 core 源码并打补丁
         # PGM 与其变体(如 fbalpha2012_pgm_dbg = 带调试信息的诊断版)走同一套预置逻辑
-        if: github.event.inputs.core == 'fbalpha2012_neogeo' || startsWith(github.event.inputs.core, 'fbalpha2012_pgm')
+        if: github.event.inputs.core == 'fbalpha2012_cps1' || github.event.inputs.core == 'fbalpha2012_neogeo' || startsWith(github.event.inputs.core, 'fbalpha2012_pgm')
         run: |
           CORE=${{ github.event.inputs.core }}
           mkdir -p compile
-          if [ "$CORE" = "fbalpha2012_neogeo" ]; then
+          if [ "$CORE" = "fbalpha2012_cps1" ]; then
+            # cps1: 用**打过补丁的机板子集**(合并版 libretro.cpp + EJS 单步入口 ejs_step_frames)。
+            #   ⚠️ 上游 EmulatorJS/fbalpha2012_cps1 里**没有**这个函数 —— 导出表里写了它, 链接器只发
+            #      "未定义符号"警告、构建照绿, 于是 wasm 里永远搜不到符号。这就是 8 轮"符号永远不在"的根因。
+            git clone --depth 1 https://github.com/zerosst/ejs-fbalpha2012_cps1.git "compile/$CORE"
+            echo "--- 确认补丁版源码就位(必须 >=1, 否则立即红, 别静默) ---"
+            grep -c "EMSCRIPTEN_KEEPALIVE void ejs_step_frames" "compile/$CORE/src/burner/libretro/libretro.cpp" \
+              || { echo "❌ 补丁版源码没 clone 对"; exit 1; }
+          elif [ "$CORE" = "fbalpha2012_neogeo" ]; then
             git clone --depth 1 https://github.com/libretro/fbalpha2012_neogeo.git "compile/$CORE"
             cp "core-patch/makefile.libretro" "compile/$CORE/makefile.libretro"
           else
@@ -171,6 +179,14 @@ jobs:
             ls -la compile/RetroArch/EmulatorJS/data/cores/fbalpha2012_cps1* 2>/dev/null | head -20 || true
             echo "--- 全树 wasm / *_libretro.js ---"
             find . -name '*.wasm' -o -name '*_libretro.js' 2>/dev/null | head -20
+            echo "--- ★ 本次编译用的是哪份源码? 补丁进编译了吗? ---"
+            ls -la compile/fbalpha2012_cps1/src/burner/libretro/libretro.cpp 2>/dev/null || echo "(compile/<core> 不存在)"
+            C=$(grep -c "EMSCRIPTEN_KEEPALIVE void ejs_step_frames" compile/fbalpha2012_cps1/src/burner/libretro/libretro.cpp 2>/dev/null || true)
+            echo "补丁函数在源码里出现 $C 次(应 >=1)"
+            echo "导出表里出现 $(grep -c _ejs_step_frames compile/RetroArch/Makefile.emulatorjs 2>/dev/null || true) 次"
+            echo "--- 编译/链接日志里的 netplay 痕迹 ---"
+            grep -n "ejs_step" output/logs/*-compile.log output/logs/*-emake.log 2>/dev/null | head -8 || echo "(日志里没提到 ejs_step)"
+            grep -n "undefined symbol" output/logs/*-emake.log 2>/dev/null | head -8 || echo "(无 undefined symbol)"
             echo "--- 取出过的 .data 里那份 js 的符号数(如果 data/cores 里有) ---"
             for JS in compile/RetroArch/EmulatorJS/data/cores/fbalpha2012_cps1*.js; do
               [ -f "$JS" ] || continue
