@@ -424,19 +424,19 @@ for row in $(jq -r '.[] | @base64' ../cores.json); do
         {
           echo ""
           echo "=== 编译后校验(胶水里的导出符号) ==="
-          for JS in *_libretro.js; do
-            [ -f "$JS" ] || continue
-            printf "%s : _ejs_step_frames=%s _simulate_input=%s\n" "$JS" \
-              "$(grep -c _ejs_step_frames "$JS" || true)" "$(grep -c _simulate_input "$JS" || true)"
+          echo "--- 全树找 *_libretro.js(上一轮测的 emulatorjs/ 里没有, 所以什么都没打印) ---"
+          for JS in $(find "$buildPath" -name "*_libretro.js" 2>/dev/null | head -8); do
+            echo "$JS : step=$(grep -c _ejs_step_frames "$JS" || true) sim=$(grep -c _simulate_input "$JS" || true) size=$(wc -c < "$JS" || true)"
           done
-          echo "--- Makefile.emulatorjs 里 EXPORTED_FUNCTIONS 的所有出现位置 ---"
-          grep -n EXPORTED_FUNCTIONS ../Makefile.emulatorjs || true
-          echo "--- 导出表 124-131 行 ---"
-          sed -n "124,131p" ../Makefile.emulatorjs
-          echo "--- 链接规则里用它时的上下文 ---"
-          grep -n -B2 -A2 "EXPORTED_FUNCTIONS" ../Makefile.emulatorjs | tail -20 || true
-        } >> "$outputPath/netplay-diag.txt"
-        tail -n 30 "$outputPath/netplay-diag.txt"
+          echo "--- cwd(emulatorjs/) 里有什么 js ---"
+          ls -1 *.js 2>/dev/null | head -10
+          echo "--- EmulatorJS/data/cores/ 里有什么(打包 .data 的很可能拿的是这里) ---"
+          ls -1 "../EmulatorJS/data/cores/" 2>/dev/null | head -20
+          echo "--- 那里面同名 js 的符号数 ---"
+          for JS in ../EmulatorJS/data/cores/*_libretro.js; do
+            [ -f "$JS" ] || continue
+            echo "$JS : step=$(grep -c _ejs_step_frames "$JS" || true) sim=$(grep -c _simulate_input "$JS" || true) size=$(wc -c < "$JS" || true)"
+          done
 
         echo "Packing core information for $name"
         cd $compileStartPath
