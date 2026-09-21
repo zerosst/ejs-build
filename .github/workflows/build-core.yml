@@ -156,6 +156,15 @@ jobs:
             sed -n "124,126p" compile/RetroArch/Makefile.emulatorjs 2>/dev/null || true
           } > output/netplay-diag.txt 2>&1 || true
           {
+            echo "--- ★ compile/RetroArch/ 下该核心的全部文件(wasm/js/map 都要看到) ---"
+            ls -la compile/RetroArch/ 2>/dev/null | grep -i fbalpha2012_cps1 || echo "(该目录下没有该核心的文件)"
+            echo "--- 逐个文件报符号数(js 才有意义) ---"
+            for F in compile/RetroArch/fbalpha2012_cps1*; do
+              [ -f "$F" ] || continue
+              echo "$F : size=$(wc -c < "$F" || true) step=$(grep -c _ejs_step_frames "$F" 2>/dev/null || true) sim=$(grep -c _simulate_input "$F" 2>/dev/null || true)"
+            done
+            echo "--- 项目里那份 EJS 官方预构建 .data(对照: 它与我们的构建无关) ---"
+            ls -la cores/ejs/*cps1* 2>/dev/null | head -5 || true
             echo "--- emulatorjs/ 目录(编译产出) ---"
             ls -la compile/RetroArch/emulatorjs/ 2>/dev/null | head -30 || true
             echo "--- EmulatorJS/data/cores/(打包源) ---"
@@ -185,6 +194,7 @@ jobs:
             output/reports/*
             compile/RetroArch/EmulatorJS/data/cores/fbalpha2012_cps1*
             compile/RetroArch/emulatorjs/fbalpha2012_cps1*
+            compile/RetroArch/fbalpha2012_cps1*
             output/reports/**
             output/logs/**
             compile/build.json
