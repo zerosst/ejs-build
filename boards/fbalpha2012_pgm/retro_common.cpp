@@ -552,3 +552,29 @@ void SetSekCpuCore()
 	nSekCpuCore = (bCycloneEnabled ? 0 : 1);
 }
 #endif
+
+/* ============================================================================
+ * ★ P5 联机(帧同步)单步入口 —— 由 tools/patch_netplay_step.py 注入, 别手改这一块。
+ *
+ * 街机核心的帧循环在 RetroArch 的 emscripten 前端:
+ *     frontend/drivers/platform_emulatorjs.c: emscripten_set_main_loop(emscripten_mainloop, 0, 0);
+ * `emscripten_mainloop` 在哪都只被**声明**(那里是 `void emscripten_mainloop(void);`), 函数体在
+ * RetroArch 自己的源文件里 —— 所以它是个普通 C 符号, 这里声明 + 包一层即可拿到"跑一帧"的入口。
+ *
+ * 联机侧用法: toggleMainLoop(0) 停核心自己的循环 -> 每帧用 simulate_input 写好双方输入
+ * -> ejs_step_frames(1) -> 退出时 toggleMainLoop(1) 交还单机。
+ * ============================================================================ */
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#ifdef __cplusplus
+extern "C" {
+#endif
+void emscripten_mainloop(void);                       /* RetroArch 前端的每帧回调(非 static) */
+EMSCRIPTEN_KEEPALIVE void ejs_step_frames(int n) {    /* 联机: 只走 n 帧 */
+   int i;
+   for (i = 0; i < n; i++) emscripten_mainloop();
+}
+#ifdef __cplusplus
+}
+#endif
+#endif
