@@ -72,6 +72,13 @@ jobs:
           elif [ "$CORE" = "fbalpha2012_neogeo" ]; then
             git clone --depth 1 https://github.com/libretro/fbalpha2012_neogeo.git "compile/$CORE"
             cp "core-patch/makefile.libretro" "compile/$CORE/makefile.libretro"
+            # ★★ 联机(P5) 单步入口: 上游 `libretro.cpp` **没有** ejs_step_frames ⇒
+            #    覆盖成我们注入过的版本(等于给 neogeo 也做一次 CPS1 那种"打补丁的前端文件")。
+            #    ⚠️ 注入的是核心里**会被编译**的那个文件: 上游是"合并版 libretro.cpp"(和机板子集同布局)。
+            cp "core-patch/libretro.cpp" "compile/$CORE/src/burner/libretro/libretro.cpp"
+            grep -c "EMSCRIPTEN_KEEPALIVE void ejs_step_frames" "compile/$CORE/src/burner/libretro/libretro.cpp" \
+              || { echo "❌ neogeo 单步补丁没进到 core 树"; exit 1; }
+            echo "✔ neogeo 单步补丁已就位"
           else
             # PGM: 上游**没有** PGM 子集, 只有全驱动树 -> clone 完整树, 把 svn-current/trunk 的内容搬到根,
             # 再覆盖我们改过的 makefile(加了 target=pgm 分支)与 gamelist(只留 115 款 PGM 游戏)
@@ -84,6 +91,10 @@ jobs:
             #   三个文件的, 而机板子集用的是"合并版 libretro.cpp"(所以子集没事)。
             #   不补 -> 链接期 52 条 `undefined symbol: NeoSystem`(编译全绿)。
             cp "boards/fbalpha2012_pgm/retro_common.cpp" "compile/$CORE/src/burner/libretro/retro_common.cpp"
+            # ★★ 联机(P5) 单步入口随板文件一起来(boards/.../retro_common.cpp 里已注入 ejs_step_frames)
+            grep -c "EMSCRIPTEN_KEEPALIVE void ejs_step_frames" "compile/$CORE/src/burner/libretro/retro_common.cpp" \
+              || { echo "❌ pgm 单步补丁没进到 core 树"; exit 1; }
+            echo "✔ pgm 单步补丁已就位"
             # ★ arm7 页表清零补丁 —— kov2 "跑 ~764 帧后崩" 的根因:
             #   `Arm7Init` 用 malloc 分配 `membase[3]`(读/写/取指三张页表)却**从不清零**;
             #   而三条读写路径都靠 `if (membase[X][page] != NULL)` 判"有没有映射" —— 即
