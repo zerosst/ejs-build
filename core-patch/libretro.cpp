@@ -3097,23 +3097,23 @@ size_t wcstombs(char *s, const wchar_t *pwcs, size_t n)
 /* ============================================================================
  * ★ P5 联机(帧同步)单步入口 —— 由 tools/patch_netplay_step.py 注入, 别手改这一块。
  *
- * 街机核心的帧循环在 RetroArch 的 emscripten 前端:
- *     frontend/drivers/platform_emulatorjs.c: emscripten_set_main_loop(emscripten_mainloop, 0, 0);
- * `emscripten_mainloop` 在哪都只被**声明**(那里是 `void emscripten_mainloop(void);`), 函数体在
- * RetroArch 自己的源文件里 —— 所以它是个普通 C 符号, 这里声明 + 包一层即可拿到"跑一帧"的入口。
- *
- * 联机侧用法: toggleMainLoop(0) 停核心自己的循环 -> 每帧用 simulate_input 写好双方输入
- * -> ejs_step_frames(1) -> 退出时 toggleMainLoop(1) 交还单机。
+ * ⚠️★★ 为什么**不**调 `emscripten_mainloop`（2026-09-30 实测的教训）:
+ *   那个前端主循环**按墙钟节流** —— 连着两次 stepFrames(5) 得到 **+4 / +0**
+ *   (量法: .eval/arcade_mini_env.js --netstep)：它只在"该出下一帧"时才推进 ⇒
+ *   一次调用走几帧取决于调用时刻 ⇒ **不可用于帧同步**（两台设备必然错帧）。
+ *   佐证: 9/21 编的 CPS1 恰好 +5/+5 ⇒ 是 EJS 前端后来加的节流, 不是我们的补丁有问题。
+ * 改成直接调**核心自己的**每帧入口 `retro_run()`（libretro.h 里已声明, C 链接）:
+ *   一次调用 = 一整帧, 与时钟无关, 完全确定 —— 这才是帧同步要的语义。
  * ============================================================================ */
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
-void emscripten_mainloop(void);                       /* RetroArch 前端的每帧回调(非 static) */
+void retro_run(void);                                 /* 核心的 libretro 每帧入口 */
 EMSCRIPTEN_KEEPALIVE void ejs_step_frames(int n) {    /* 联机: 只走 n 帧 */
    int i;
-   for (i = 0; i < n; i++) emscripten_mainloop();
+   for (i = 0; i < n; i++) retro_run();
 }
 #ifdef __cplusplus
 }
