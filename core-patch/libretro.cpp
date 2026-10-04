@@ -3097,23 +3097,23 @@ size_t wcstombs(char *s, const wchar_t *pwcs, size_t n)
 /* ============================================================================
  * ★ P5 联机(帧同步)单步入口 —— 由 tools/patch_netplay_step.py 注入, 别手改这一块。
  *
- * ⚠️★★ 为什么**不**调 `emscripten_mainloop`（2026-09-30 实测的教训）:
- *   那个前端主循环**按墙钟节流** —— 连着两次 stepFrames(5) 得到 **+4 / +0**
- *   (量法: .eval/arcade_mini_env.js --netstep)：它只在"该出下一帧"时才推进 ⇒
- *   一次调用走几帧取决于调用时刻 ⇒ **不可用于帧同步**（两台设备必然错帧）。
- *   佐证: 9/21 编的 CPS1 恰好 +5/+5 ⇒ 是 EJS 前端后来加的节流, 不是我们的补丁有问题。
- * 改成直接调**核心自己的**每帧入口 `retro_run()`（libretro.h 里已声明, C 链接）:
- *   一次调用 = 一整帧, 与时钟无关, 完全确定 —— 这才是帧同步要的语义。
+ * 🔴🔴 **必须走 `emscripten_mainloop`**（2026-10-03 真机实测，纠正了 9/30 的改动）：
+ *   9/30 改成直接调 `retro_run()`（为了绕开 mainloop 的墙钟节流），但**漏了 mainloop 里
+ *   除出帧之外的另一件大事：输入轮询**（`input_driver` 的 poll，把"设备层"按键搬进
+ *   核心每帧读的那一层）。`simulate_input()` 写的是设备层 ⇒ 不 poll 就搬不过去 ⇒ **按键全废**。
+ *   ⇒ 对照实验（`.eval/arcade_mini_env.js --twins --press=N`，两独立实例、都冻结在 0 帧起跑、
+ *     同样帧数，只有 B 中途按一下键）：CPS1(调 mainloop) 差异 **953 字节** ✓ / NeoGeo(调
+ *     retro_run) 差异 **0 字节** ✗ ⇒ 真机上「area88 能玩、kof97 没法开局」就是这一条。
  * ============================================================================ */
 #ifdef __EMSCRIPTEN__
 #include <emscripten.h>
 #ifdef __cplusplus
 extern "C" {
 #endif
-void retro_run(void);                                 /* 核心的 libretro 每帧入口 */
+void emscripten_mainloop(void);                       /* 前端主循环(定义在 RetroArch 里, 普通 C 符号) */
 EMSCRIPTEN_KEEPALIVE void ejs_step_frames(int n) {    /* 联机: 只走 n 帧 */
    int i;
-   for (i = 0; i < n; i++) retro_run();
+   for (i = 0; i < n; i++) emscripten_mainloop();     /* ← 不能换成 retro_run(): 会丢输入轮询 */
 }
 #ifdef __cplusplus
 }
